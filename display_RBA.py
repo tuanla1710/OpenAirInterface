@@ -24,22 +24,30 @@ import numpy as np
 import matplotlib.ticker as ticker
 from matplotlib import colors as mcolors
 
-
-fig = plt.figure()
-ax1 = fig.add_subplot(1,1,1)
-def animate(i):
-    file_to_save = '/home/epc/empower-runtime/SavedDatautility.mat'
-    data_to_get = scipy.io.loadmat(file_to_save)
-    su = data_to_get['M1']
-    xar = np.array(range(1,101))
-    yar = su[0][:]
-    ax1.clear()
-    ax1.plot(xar,yar)
-    plt.xlabel('History')
-    plt.ylabel('Network Utility')
-    plt.title('Utility = sum_rate(bit/s)*reward-n_RB*cost(power/re))')
-ani = animation.FuncAnimation(fig, animate, interval=10000)
+def DisplaymRBA_RB_BS(mRBA_BS, nBS,nRB):
+    #    plt.figure(2)
+    fig, ax1 = plt.subplots()
+    ax = plt.gca()
+    ax.cla()
+    for i in range(nRB):
+        for j in range(nBS):
+            if mRBA_BS[[j], [i]] == 1:
+                plt.plot(j, i, 'rs', ms=10)
+            else:
+                plt.plot(j, i, 'gs', ms=10)
+    plt.xlabel('RB index')
+    plt.ylabel('BS index')
+    plt.title('RB allocation to BSs')
+    ax1.xaxis.set_ticks(np.arange(0, nBS, 1))
+    ax1.xaxis.set_major_formatter(ticker.FormatStrFormatter('%1i'))
+    ax1.yaxis.set_ticks(np.arange(0, nRB, 1))
+    ax1.yaxis.set_major_formatter(ticker.FormatStrFormatter('%1i'))
+    plt.grid(True)    
+    return 1
+file_to_save = '/home/epc/empower-runtime/SavedRBA.mat'
+data_to_get = scipy.io.loadmat(file_to_save)
+mRBA_BS = data_to_get['M1']
+print (mRBA_BS)
+DisplaymRBA_RB_BS(mRBA_BS,5,25)
 plt.show()
-
-
 

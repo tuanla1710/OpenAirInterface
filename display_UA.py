@@ -28,10 +28,10 @@ from matplotlib import colors as mcolors
 fig = plt.figure()
 ax1 = fig.add_subplot(1,1,1)
 def animate(i):
-    file_to_save = '/home/epc/empower-runtime/SavedDatautility.mat'
+    file_to_save = '/home/epc/empower-runtime/SavedHistUtility.mat'
     data_to_get = scipy.io.loadmat(file_to_save)
     su = data_to_get['M1']
-    xar = np.array(range(1,101))
+    xar = np.array(range(0,1000))
     yar = su[0][:]
     ax1.clear()
     ax1.plot(xar,yar)
