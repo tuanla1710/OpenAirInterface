@@ -1,0 +1,483 @@
+Appendix A
+$ sudo pip3 install tornado sqlalchemy construct==2.5.2 protobuf protobuf3-to-dict
+At the Agent:
+$ wget https://github.com/protobuf-c/protobuf-c/releases/download/v1.2.1/protobuf-c-1.2.1.tar.gz
+$ tar xvfz protobuf-c-1.2.1.tar.gz
+$ cd protobuf-c-1.2.
+$./configure
+$ Make
+$ sudo make install
+For exchanging data, we customized the data description file (main.proto) for parsing data, where the message is defined as follows:
+message header {
+       required uint32 vers = 1;
+       required uint32 b_id = 2;
+       required uint32 seq = 3;
+       required uint32 t_id = 4;
+        required double mUA=5;
+       required double mPA=6;
+       required double GRB1=7;
+       required double GRB2=8;
+       required double GRB3=9;
+       required double GRB4=10;
+       required double GRB5=11;
+        required double td1=12; 
+        required double td2=13; 
+        required double td3=14; 
+        required double td4=15; 
+        required double td5=16; 
+        required double td6=17; 
+        required double td7=18; 
+        required double td8=19; 
+        required double td9=20; 
+        required double td10=21;
+        required double td11=22;
+        required double td12=23;
+        required double td13=24;
+        required double td14=25;
+        required double td15=26;
+        required double td16=27;
+        required double td17=28;
+        required double td18=29;
+        required double td19=30;
+        required double td20=31;
+}
+where .proto file is converted to C  files (main.pb-c.c, main.pb-c.h) at the agent side through the use of the following commands:
+$./ cd empower-eNB-agent/proto
+$./make
+$./sudo make install
+$./cd ../agent
+$./make
+$./sudo make install
+where the message is defined as follows:
+static const ProtobufCFieldDescriptor header__field_descriptors[31] =
+{
+  {
+    "vers",
+    1,
+    PROTOBUF_C_LABEL_REQUIRED,
+    PROTOBUF_C_TYPE_UINT32,
+    0,   /* quantifier_offset */
+    offsetof(Header, vers),
+    NULL,
+    NULL,
+    0,             /* flags */
+    0,NULL,NULL    /* reserved1,reserved2, etc */
+  },
+  {
+    "b_id",
+    2,
+    PROTOBUF_C_LABEL_REQUIRED,
+    PROTOBUF_C_TYPE_UINT32,
+    0,   /* quantifier_offset */
+    offsetof(Header, b_id),
+    NULL,
+    NULL,
+    0,             /* flags */
+    0,NULL,NULL    /* reserved1,reserved2, etc */
+  },
+  {
+    "seq",
+    3,
+    PROTOBUF_C_LABEL_REQUIRED,
+    PROTOBUF_C_TYPE_UINT32,
+    0,   /* quantifier_offset */
+    offsetof(Header, seq),
+    NULL,
+    NULL,
+    0,             /* flags */
+    0,NULL,NULL    /* reserved1,reserved2, etc */
+  },
+  {
+    "t_id",
+    4,
+    PROTOBUF_C_LABEL_REQUIRED,
+    PROTOBUF_C_TYPE_UINT32,
+    0,   /* quantifier_offset */
+    offsetof(Header, t_id),
+    NULL,
+    NULL,
+    0,             /* flags */
+    0,NULL,NULL    /* reserved1,reserved2, etc */
+  },
+  {
+    "mUA",
+    5,
+    PROTOBUF_C_LABEL_REQUIRED,
+    PROTOBUF_C_TYPE_DOUBLE,
+    0,   /* quantifier_offset */
+    offsetof(Header, mua),
+    NULL,
+    NULL,
+    0,             /* flags */
+    0,NULL,NULL    /* reserved1,reserved2, etc */
+  },
+  {
+    "mPA",
+    6,
+    PROTOBUF_C_LABEL_REQUIRED,
+    PROTOBUF_C_TYPE_DOUBLE,
+    0,   /* quantifier_offset */
+    offsetof(Header, mpa),
+    NULL,
+    NULL,
+    0,             /* flags */
+    0,NULL,NULL    /* reserved1,reserved2, etc */
+  },
+  {
+    "GRB1",
+    7,
+    PROTOBUF_C_LABEL_REQUIRED,
+    PROTOBUF_C_TYPE_DOUBLE,
+    0,   /* quantifier_offset */
+    offsetof(Header, grb1),
+    NULL,
+    NULL,
+    0,             /* flags */
+    0,NULL,NULL    /* reserved1,reserved2, etc */
+  },
+  {
+    "GRB2",
+    8,
+    PROTOBUF_C_LABEL_REQUIRED,
+    PROTOBUF_C_TYPE_DOUBLE,
+    0,   /* quantifier_offset */
+    offsetof(Header, grb2),
+    NULL,
+    NULL,
+    0,             /* flags */
+    0,NULL,NULL    /* reserved1,reserved2, etc */
+  },
+  {
+    "GRB3",
+    9,
+    PROTOBUF_C_LABEL_REQUIRED,
+    PROTOBUF_C_TYPE_DOUBLE,
+    0,   /* quantifier_offset */
+    offsetof(Header, grb3),
+    NULL,
+    NULL,
+    0,             /* flags */
+    0,NULL,NULL    /* reserved1,reserved2, etc */
+  },
+  {
+    "GRB4",
+    10,
+    PROTOBUF_C_LABEL_REQUIRED,
+    PROTOBUF_C_TYPE_DOUBLE,
+    0,   /* quantifier_offset */
+    offsetof(Header, grb4),
+    NULL,
+    NULL,
+    0,             /* flags */
+    0,NULL,NULL    /* reserved1,reserved2, etc */
+  },
+
+
+Appendex B
+$ protoc --proto_path=proto --python_out=empower/vbsp/messages proto/main.proto 
+where the message is described as follows:
+_HEADER = _descriptor.Descriptor(
+  name='header',
+  full_name='header',
+  filename=None,
+  file=DESCRIPTOR,
+  containing_type=None,
+  fields=[
+    _descriptor.FieldDescriptor(
+      name='vers', full_name='header.vers', index=0,
+      number=1, type=13, cpp_type=3, label=2,
+      has_default_value=False, default_value=0,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      options=None),
+    _descriptor.FieldDescriptor(
+      name='b_id', full_name='header.b_id', index=1,
+      number=2, type=13, cpp_type=3, label=2,
+      has_default_value=False, default_value=0,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      options=None),
+    _descriptor.FieldDescriptor(
+      name='seq', full_name='header.seq', index=2,
+      number=3, type=13, cpp_type=3, label=2,
+      has_default_value=False, default_value=0,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      options=None),
+    _descriptor.FieldDescriptor(
+      name='t_id', full_name='header.t_id', index=3,
+      number=4, type=13, cpp_type=3, label=2,
+      has_default_value=False, default_value=0,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      options=None),
+    _descriptor.FieldDescriptor(
+      name='mUA', full_name='header.mUA', index=4,
+      number=5, type=1, cpp_type=5, label=2,
+      has_default_value=False, default_value=float(0),
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      options=None),
+    _descriptor.FieldDescriptor(
+      name='mPA', full_name='header.mPA', index=5,
+      number=6, type=1, cpp_type=5, label=2,
+      has_default_value=False, default_value=float(0),
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      options=None),
+    _descriptor.FieldDescriptor(
+      name='GRB1', full_name='header.GRB1', index=6,
+      number=7, type=1, cpp_type=5, label=2,
+      has_default_value=False, default_value=float(0),
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      options=None),
+    _descriptor.FieldDescriptor(
+      name='GRB2', full_name='header.GRB2', index=7,
+      number=8, type=1, cpp_type=5, label=2,
+      has_default_value=False, default_value=float(0),
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      options=None),
+    _descriptor.FieldDescriptor(
+      name='GRB3', full_name='header.GRB3', index=8,
+      number=9, type=1, cpp_type=5, label=2,
+      has_default_value=False, default_value=float(0),
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      options=None),
+    _descriptor.FieldDescriptor(
+      name='GRB4', full_name='header.GRB4', index=9,
+      number=10, type=1, cpp_type=5, label=2,
+      has_default_value=False, default_value=float(0),
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      options=None),
+    _descriptor.FieldDescriptor(
+      name='GRB5', full_name='header.GRB5', index=10,
+      number=11, type=1, cpp_type=5, label=2,
+      has_default_value=False, default_value=float(0),
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      options=None),
+    _descriptor.FieldDescriptor(
+      name='td1', full_name='header.td1', index=11,
+      number=12, type=1, cpp_type=5, label=2,
+      has_default_value=False, default_value=float(0),
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      options=None),
+    _descriptor.FieldDescriptor(
+      name='td2', full_name='header.td2', index=12,
+      number=13, type=1, cpp_type=5, label=2,
+      has_default_value=False, default_value=float(0),
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      options=None),
+    _descriptor.FieldDescriptor(
+      name='td3', full_name='header.td3', index=13,
+      number=14, type=1, cpp_type=5, label=2,
+      has_default_value=False, default_value=float(0),
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      options=None),
+    _descriptor.FieldDescriptor(
+      name='td4', full_name='header.td4', index=14,
+      number=15, type=1, cpp_type=5, label=2,
+      has_default_value=False, default_value=float(0),
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      options=None),
+    _descriptor.FieldDescriptor(
+      name='td5', full_name='header.td5', index=15,
+      number=16, type=1, cpp_type=5, label=2,
+      has_default_value=False, default_value=float(0),
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      options=None),
+    _descriptor.FieldDescriptor(
+      name='td6', full_name='header.td6', index=16,
+      number=17, type=1, cpp_type=5, label=2,
+      has_default_value=False, default_value=float(0),
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      options=None),
+    _descriptor.FieldDescriptor(
+      name='td7', full_name='header.td7', index=17,
+      number=18, type=1, cpp_type=5, label=2,
+      has_default_value=False, default_value=float(0),
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      options=None),
+    _descriptor.FieldDescriptor(
+      name='td8', full_name='header.td8', index=18,
+      number=19, type=1, cpp_type=5, label=2,
+      has_default_value=False, default_value=float(0),
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      options=None),
+    _descriptor.FieldDescriptor(
+      name='td9', full_name='header.td9', index=19,
+      number=20, type=1, cpp_type=5, label=2,
+      has_default_value=False, default_value=float(0),
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      options=None),
+    _descriptor.FieldDescriptor(
+      name='td10', full_name='header.td10', index=20,
+      number=21, type=1, cpp_type=5, label=2,
+      has_default_value=False, default_value=float(0),
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      options=None),
+    _descriptor.FieldDescriptor(
+      name='td11', full_name='header.td11', index=21,
+      number=22, type=1, cpp_type=5, label=2,
+      has_default_value=False, default_value=float(0),
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      options=None),
+    _descriptor.FieldDescriptor(
+      name='td12', full_name='header.td12', index=22,
+      number=23, type=1, cpp_type=5, label=2,
+      has_default_value=False, default_value=float(0),
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      options=None),
+    _descriptor.FieldDescriptor(
+      name='td13', full_name='header.td13', index=23,
+      number=24, type=1, cpp_type=5, label=2,
+      has_default_value=False, default_value=float(0),
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      options=None),
+    _descriptor.FieldDescriptor(
+      name='td14', full_name='header.td14', index=24,
+      number=25, type=1, cpp_type=5, label=2,
+      has_default_value=False, default_value=float(0),
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      options=None),
+    _descriptor.FieldDescriptor(
+      name='td15', full_name='header.td15', index=25,
+      number=26, type=1, cpp_type=5, label=2,
+      has_default_value=False, default_value=float(0),
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      options=None),
+    _descriptor.FieldDescriptor(
+      name='td16', full_name='header.td16', index=26,
+      number=27, type=1, cpp_type=5, label=2,
+      has_default_value=False, default_value=float(0),
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      options=None),
+    _descriptor.FieldDescriptor(
+      name='td17', full_name='header.td17', index=27,
+      number=28, type=1, cpp_type=5, label=2,
+      has_default_value=False, default_value=float(0),
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      options=None),
+    _descriptor.FieldDescriptor(
+      name='td18', full_name='header.td18', index=28,
+      number=29, type=1, cpp_type=5, label=2,
+      has_default_value=False, default_value=float(0),
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      options=None),
+    _descriptor.FieldDescriptor(
+      name='td19', full_name='header.td19', index=29,
+      number=30, type=1, cpp_type=5, label=2,
+      has_default_value=False, default_value=float(0),
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      options=None),
+    _descriptor.FieldDescriptor(
+      name='td20', full_name='header.td20', index=30,
+      number=31, type=1, cpp_type=5, label=2,
+      has_default_value=False, default_value=float(0),
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      options=None),
+  ],
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Appendix C
+lte-softmodem.c
+-----------------------------------------------------------------------------------------------------------------
+#ifdef EMAGE_AGENT
+// Only one module is supported in OAI i.e (mod_id 0)
+spectrum_sensing_grb5 = atof(sSSR5);//511011; // will get from sensing function
+//// end of code///
+// made by Mr. Aselme --> tested
+double p_ue_rx1 = 1086004400210; // dowlink transmit power or Tx_gain
+double p_ue_rx2 = 1086004400220; // dowlink transmit power or Tx_gain
+double p_ue_rx3 = 1175017501750; // dowlink transmit power or Tx_gain 175: NO ue
+double p_ue_rx4 = 1175017501750; // dowlink transmit power or Tx_gain
+double p_ue_rx5 = 1175017501750; // dowlink transmit power or Tx_gain
+
+double rsvp1 = vRSRP1// 1075007600770; // dowlink transmit power or Tx_gain 075: -75 dBm
+double rsvp2 = 1079007200750; // dowlink transmit power or Tx_gain
+double rsvp3 = 1175017501750; // dowlink transmit power or Tx_gain // NO ue
+double rsvp4 = 1175017501750; // dowlink transmit power or Tx_gain // NO ue
+double rsvp5 = 1175017501750; // dowlink transmit power or Tx_gain // nO ue
+
+double spectrum_sensing_grb1 = 101011; // will get from sensing function
+double spectrum_sensing_grb2 = 201011; // will get from sensing function
+double spectrum_sensing_grb3 = 311011; // will get from sensing function
+double spectrum_sensing_grb4 = 401101; // will get from sensing function
+double spectrum_sensing_grb5 = 511011; // will get from sensing function
+
+double td1=spectrum_sensing_grb1;
+double td2=spectrum_sensing_grb2;
+double td3=spectrum_sensing_grb3;
+double td4=spectrum_sensing_grb4;
+double td5=spectrum_sensing_grb5;
+double td6=spectrum_sensing_grb5;
+
+double td7=p_ue_rx1;
+double td8=p_ue_rx2;
+double td9=p_ue_rx3;
+double td10=p_ue_rx4;
+double td11=p_ue_rx5;
+
+double td12=rsrp1;
+double td13=rsrp2;
+double td14=rsrp3;
+double td15=rsrp4;
+double td16=rsrp5;
+
+double td17=0;
+double td18=0;
+double td19=0;
+double td20=0;
+
+
+//receiving from controller
+double mua=1.0;
+double mpa=2.5;
+double grb1=58.0;
+double grb2=58.0;
+double grb3=58.0;
+double grb4=45.5;
+double grb5=12.0;
+
+//end of code
+printf("Check for eNB-4");
+em_start(&sim_ops, enb_properties->properties[0]->eNB_id,mua, mpa, grb1, grb2,grb3,grb4,grb5, td1, td2, td3, td4, td5, td6, td7, td8, td9, td10, td11, td12, td13, td14, td15, td16, td17, td18, td19, td20);
+printf("Check for eNB-3");
+#endif /* EMAGE_AGENT */
+
