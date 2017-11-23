@@ -1,0 +1,916 @@
+
+int initial_sync(PHY_VARS_UE *phy_vars_ue, runmode_t mode)
+{
+
+  int32_t sync_pos,sync_pos2,sync_pos_slot;
+  int32_t metric_fdd_ncp=0,metric_fdd_ecp=0,metric_tdd_ncp=0,metric_tdd_ecp=0;
+  uint8_t phase_fdd_ncp,phase_fdd_ecp,phase_tdd_ncp,phase_tdd_ecp;
+  uint8_t flip_fdd_ncp,flip_fdd_ecp,flip_tdd_ncp,flip_tdd_ecp;
+  //  uint16_t Nid_cell_fdd_ncp=0,Nid_cell_fdd_ecp=0,Nid_cell_tdd_ncp=0,Nid_cell_tdd_ecp=0;
+  LTE_DL_FRAME_PARMS *frame_parms = &phy_vars_ue->lte_frame_parms;
+  LOG_I(PHY,"[TAIHM][UE%d] Initial sync : ue->Nid_cell: %d\n",phy_vars_ue->Mod_id,phy_vars_ue->lte_frame_parms.Nid_cell);
+  LOG_I(PHY,"[TAIHM][UE%d] Initial sync : ue->eNB_id: %d\n",phy_vars_ue->Mod_id,phy_vars_ue->lte_ue_common_vars.eNb_id);
+  LOG_I(PHY,"[TAIHM][UE%d] Initial sync : ue->Nid_cell: %d\n",phy_vars_ue->Mod_id,frame_parms->Nid_cell);
+  int ret=-1;
+  int aarx,rx_power=0;
+
+  /*#ifdef OAI_USRP
+  __m128i *rxdata128;
+  #endif*/
+  //  LOG_I(PHY,"**************************************************************\n");
+  // First try FDD normal prefix
+  frame_parms->Ncp=NORMAL;
+  frame_parms->frame_type=FDD;
+  init_frame_parms(frame_parms,1);
+
+  /*
+  write_output("rxdata0.m","rxd0",phy_vars_ue->lte_ue_common_vars.rxdata[0],10*frame_parms->samples_per_tti,1,1);
+  exit(-1);
+  */
+  sync_pos = lte_sync_time(phy_vars_ue->lte_ue_common_vars.rxdata,
+                           frame_parms,
+                           (int *)&phy_vars_ue->lte_ue_common_vars.eNb_id);
+
+  //  write_output("rxdata1.m","rxd1",phy_vars_ue->lte_ue_common_vars.rxdata[0],10*frame_parms->samples_per_tti,1,1);
+  if (sync_pos >= frame_parms->nb_prefix_samples)
+    sync_pos2 = sync_pos - frame_parms->nb_prefix_samples;
+  else
+    sync_pos2 = sync_pos + FRAME_LENGTH_COMPLEX_SAMPLES - frame_parms->nb_prefix_samples;
+
+#ifdef DEBUG_INITIAL_SYNCH
+  LOG_I(PHY,"[UE%d] Initial sync : Estimated PSS position %d, Nid2 %d\n",phy_vars_ue->Mod_id,sync_pos,phy_vars_ue->lte_ue_common_vars.eNb_id);
+#endif
+
+  // SSS detection
+
+  // PSS is hypothesized in last symbol of first slot in Frame
+  sync_pos_slot = (frame_parms->samples_per_tti>>1) - frame_parms->ofdm_symbol_size - frame_parms->nb_prefix_samples;
+
+  if (sync_pos2 >= sync_pos_slot)
+    phy_vars_ue->rx_offset = sync_pos2 - sync_pos_slot;
+  else
+    phy_vars_ue->rx_offset = FRAME_LENGTH_COMPLEX_SAMPLES + sync_pos2 - sync_pos_slot;
+
+  if (((sync_pos2 - sync_pos_slot) >=0 ) &&
+      ((sync_pos2 - sync_pos_slot) < ((FRAME_LENGTH_COMPLEX_SAMPLES-frame_parms->samples_per_tti/2)))) {
+#ifdef DEBUG_INITIAL_SYNCH
+    LOG_I(PHY,"Calling sss detection (FDD normal CP)\n");
+#endif
+    LOG_I(PHY,"[TAIHM][UE%d] Initial sync, Nid_cell before rx_sss: %d\n",phy_vars_ue->Mod_id,frame_parms->Nid_cell);
+    rx_sss(phy_vars_ue,&metric_fdd_ncp,&flip_fdd_ncp,&phase_fdd_ncp);
+    LOG_I(PHY,"[TAIHM][UE%d] Initial sync, Nid_cell after rx_sss: %d\n",phy_vars_ue->Mod_id,frame_parms->Nid_cell);
+    frame_parms->nushift  = frame_parms->Nid_cell%6;
+
+    if (flip_fdd_ncp==1)
+      phy_vars_ue->rx_offset += (FRAME_LENGTH_COMPLEX_SAMPLES>>1);
+
+    init_frame_parms(&phy_vars_ue->lte_frame_parms,1);
+    lte_gold(frame_parms,phy_vars_ue->lte_gold_table[0],frame_parms->Nid_cell);
+    ret = pbch_detection(phy_vars_ue,mode);
+    //   write_output("rxdata2.m","rxd2",phy_vars_ue->lte_ue_common_vars.rxdata[0],10*frame_parms->samples_per_tti,1,1);
+
+#ifdef DEBUG_INITIAL_SYNCH
+    LOG_I(PHY,"FDD Normal prefix: CellId %d metric %d, phase %d, flip %d, pbch %d\n",
+          frame_parms->Nid_cell,metric_fdd_ncp,phase_fdd_ncp,flip_fdd_ncp,ret);
+#endif
+  } else {
+#ifdef DEBUG_INITIAL_SYNCH
+    LOG_I(PHY,"FDD Normal prefix: SSS error condition: sync_pos %d, sync_pos_slot %d\n", sync_pos, sync_pos_slot);
+#endif
+  }
+
+
+  if (ret==-1) {
+
+    // Now FDD extended prefix
+    frame_parms->Ncp=EXTENDED;
+    frame_parms->frame_type=FDD;
+    init_frame_parms(frame_parms,1);
+
+    if (sync_pos < frame_parms->nb_prefix_samples)
+      sync_pos2 = sync_pos + FRAME_LENGTH_COMPLEX_SAMPLES - frame_parms->nb_prefix_samples;
+    else
+      sync_pos2 = sync_pos - frame_parms->nb_prefix_samples;
+
+    // PSS is hypothesized in last symbol of first slot in Frame
+    sync_pos_slot = (frame_parms->samples_per_tti>>1) - frame_parms->ofdm_symbol_size - (frame_parms->nb_prefix_samples);
+
+    if (sync_pos2 >= sync_pos_slot)
+      phy_vars_ue->rx_offset = sync_pos2 - sync_pos_slot;
+    else
+      phy_vars_ue->rx_offset = FRAME_LENGTH_COMPLEX_SAMPLES + sync_pos2 - sync_pos_slot;
+
+    //msg("nb_prefix_samples %d, rx_offset %d\n",frame_parms->nb_prefix_samples,phy_vars_ue->rx_offset);
+
+    if (((sync_pos2 - sync_pos_slot) >=0 ) &&
+        ((sync_pos2 - sync_pos_slot) < ((FRAME_LENGTH_COMPLEX_SAMPLES-frame_parms->samples_per_tti/2)))) {
+
+      rx_sss(phy_vars_ue,&metric_fdd_ecp,&flip_fdd_ecp,&phase_fdd_ecp);
+      frame_parms->nushift  = frame_parms->Nid_cell%6;
+
+      if (flip_fdd_ecp==1)
+        phy_vars_ue->rx_offset += (FRAME_LENGTH_COMPLEX_SAMPLES>>1);
+
+      init_frame_parms(&phy_vars_ue->lte_frame_parms,1);
+      lte_gold(frame_parms,phy_vars_ue->lte_gold_table[0],frame_parms->Nid_cell);
+      ret = pbch_detection(phy_vars_ue,mode);
+      //     write_output("rxdata3.m","rxd3",phy_vars_ue->lte_ue_common_vars.rxdata[0],10*frame_parms->samples_per_tti,1,1);
+#ifdef DEBUG_INITIAL_SYNCH
+      LOG_I(PHY,"FDD Extended prefix: CellId %d metric %d, phase %d, flip %d, pbch %d\n",
+            frame_parms->Nid_cell,metric_fdd_ecp,phase_fdd_ecp,flip_fdd_ecp,ret);
+#endif
+    } else {
+#ifdef DEBUG_INITIAL_SYNCH
+      LOG_I(PHY,"FDD Extended prefix: SSS error condition: sync_pos %d, sync_pos_slot %d\n", sync_pos, sync_pos_slot);
+#endif
+    }
+
+    if (ret==-1) {
+      // Now TDD normal prefix
+      frame_parms->Ncp=NORMAL;
+      frame_parms->frame_type=TDD;
+      init_frame_parms(frame_parms,1);
+
+      if (sync_pos >= frame_parms->nb_prefix_samples)
+        sync_pos2 = sync_pos - frame_parms->nb_prefix_samples;
+      else
+        sync_pos2 = sync_pos + FRAME_LENGTH_COMPLEX_SAMPLES - frame_parms->nb_prefix_samples;
+
+      // PSS is hypothesized in 2nd symbol of third slot in Frame (S-subframe)
+      sync_pos_slot = frame_parms->samples_per_tti +
+                      (frame_parms->ofdm_symbol_size<<1) +
+                      frame_parms->nb_prefix_samples0 +
+                      (frame_parms->nb_prefix_samples);
+
+      if (sync_pos2 >= sync_pos_slot)
+        phy_vars_ue->rx_offset = sync_pos2 - sync_pos_slot;
+      else
+        phy_vars_ue->rx_offset = (FRAME_LENGTH_COMPLEX_SAMPLES>>1) + sync_pos2 - sync_pos_slot;
+
+      /*if (((sync_pos2 - sync_pos_slot) >=0 ) &&
+      ((sync_pos2 - sync_pos_slot) < ((FRAME_LENGTH_COMPLEX_SAMPLES-frame_parms->samples_per_tti/2)))) {*/
+
+
+      rx_sss(phy_vars_ue,&metric_tdd_ncp,&flip_tdd_ncp,&phase_tdd_ncp);
+
+      if (flip_tdd_ncp==1)
+        phy_vars_ue->rx_offset += (FRAME_LENGTH_COMPLEX_SAMPLES>>1);
+
+      frame_parms->nushift  = frame_parms->Nid_cell%6;
+      init_frame_parms(&phy_vars_ue->lte_frame_parms,1);
+
+      lte_gold(frame_parms,phy_vars_ue->lte_gold_table[0],frame_parms->Nid_cell);
+      ret = pbch_detection(phy_vars_ue,mode);
+      //      write_output("rxdata4.m","rxd4",phy_vars_ue->lte_ue_common_vars.rxdata[0],10*frame_parms->samples_per_tti,1,1);
+
+#ifdef DEBUG_INITIAL_SYNCH
+      LOG_I(PHY,"TDD Normal prefix: CellId %d metric %d, phase %d, flip %d, pbch %d\n",
+            frame_parms->Nid_cell,metric_tdd_ncp,phase_tdd_ncp,flip_tdd_ncp,ret);
+#endif
+      /*}
+          else {
+      #ifdef DEBUG_INITIAL_SYNCH
+              LOG_I(PHY,"TDD Normal prefix: SSS error condition: sync_pos %d, sync_pos_slot %d\n", sync_pos, sync_pos_slot);
+      #endif
+      }*/
+
+
+      if (ret==-1) {
+        // Now TDD extended prefix
+        frame_parms->Ncp=EXTENDED;
+        frame_parms->frame_type=TDD;
+        init_frame_parms(frame_parms,1);
+        sync_pos2 = sync_pos - frame_parms->nb_prefix_samples;
+
+        if (sync_pos >= frame_parms->nb_prefix_samples)
+          sync_pos2 = sync_pos - frame_parms->nb_prefix_samples;
+        else
+          sync_pos2 = sync_pos + FRAME_LENGTH_COMPLEX_SAMPLES - frame_parms->nb_prefix_samples;
+
+        // PSS is hypothesized in 2nd symbol of third slot in Frame (S-subframe)
+        sync_pos_slot = frame_parms->samples_per_tti + (frame_parms->ofdm_symbol_size<<1) + (frame_parms->nb_prefix_samples<<1);
+
+        if (sync_pos2 >= sync_pos_slot)
+          phy_vars_ue->rx_offset = sync_pos2 - sync_pos_slot;
+        else
+          phy_vars_ue->rx_offset = (FRAME_LENGTH_COMPLEX_SAMPLES>>1) + sync_pos2 - sync_pos_slot;
+
+        /*if (((sync_pos2 - sync_pos_slot) >=0 ) &&
+          ((sync_pos2 - sync_pos_slot) < ((FRAME_LENGTH_COMPLEX_SAMPLES-frame_parms->samples_per_tti/2)))) {*/
+
+        rx_sss(phy_vars_ue,&metric_tdd_ecp,&flip_tdd_ecp,&phase_tdd_ecp);
+        frame_parms->nushift  = frame_parms->Nid_cell%6;
+
+        if (flip_tdd_ecp==1)
+          phy_vars_ue->rx_offset += (FRAME_LENGTH_COMPLEX_SAMPLES>>1);
+
+        init_frame_parms(&phy_vars_ue->lte_frame_parms,1);
+        lte_gold(frame_parms,phy_vars_ue->lte_gold_table[0],frame_parms->Nid_cell);
+        ret = pbch_detection(phy_vars_ue,mode);
+
+	//	write_output("rxdata5.m","rxd5",phy_vars_ue->lte_ue_common_vars.rxdata[0],10*frame_parms->samples_per_tti,1,1);
+#ifdef DEBUG_INITIAL_SYNCH
+        LOG_I(PHY,"TDD Extended prefix: CellId %d metric %d, phase %d, flip %d, pbch %d\n",
+              frame_parms->Nid_cell,metric_tdd_ecp,phase_tdd_ecp,flip_tdd_ecp,ret);
+#endif
+        /*}
+        else {
+        #ifdef DEBUG_INITIAL_SYNCH
+          LOG_I(PHY,"TDD Extended prefix: SSS error condition: sync_pos %d, sync_pos_slot %d\n", sync_pos, sync_pos_slot);
+        #endif
+        }*/
+
+      }
+    }
+  }
+
+  if (ret==0) {  // PBCH found so indicate sync to higher layers and configure frame parameters
+
+#ifdef DEBUG_INITIAL_SYNCH
+    LOG_I(PHY,"[UE%d] In synch, rx_offset %d samples\n",phy_vars_ue->Mod_id, phy_vars_ue->rx_offset);
+#endif
+
+    if (phy_vars_ue->UE_scan_carrier == 0) {
+      if (phy_vars_ue->mac_enabled==1) {
+	LOG_I(PHY,"[UE%d] Sending synch status to higher layers\n",phy_vars_ue->Mod_id);
+	//mac_resynch();
+	mac_xface->dl_phy_sync_success(phy_vars_ue->Mod_id,phy_vars_ue->frame_rx,0,1);//phy_vars_ue->lte_ue_common_vars.eNb_id);
+	phy_vars_ue->UE_mode[0] = PRACH;
+      }
+      else {
+	phy_vars_ue->UE_mode[0] = PUSCH;
+      }
+
+      generate_pcfich_reg_mapping(frame_parms);
+      generate_phich_reg_mapping(frame_parms);
+      //    init_prach625(frame_parms);
+
+      //phy_vars_ue->lte_ue_pbch_vars[0]->pdu_errors=0;
+      phy_vars_ue->lte_ue_pbch_vars[0]->pdu_errors_conseq=0;
+    //phy_vars_ue->lte_ue_pbch_vars[0]->pdu_errors_last=0;
+    }
+
+    LOG_I(PHY,"[UE %d] Frame %d RRC Measurements => rssi %3.1f dBm (dig %3.1f dB, gain %d), N0 %d dBm,  rsrp %3.1f dBm/RE, rsrq %3.1f dB\n",phy_vars_ue->Mod_id,
+	  phy_vars_ue->frame_rx,
+	  10*log10(phy_vars_ue->PHY_measurements.rssi)-phy_vars_ue->rx_total_gain_dB,
+	  10*log10(phy_vars_ue->PHY_measurements.rssi),
+	  phy_vars_ue->rx_total_gain_dB,
+	  phy_vars_ue->PHY_measurements.n0_power_tot_dBm,
+	  10*log10(phy_vars_ue->PHY_measurements.rsrp[0])-phy_vars_ue->rx_total_gain_dB,
+	  (10*log10(phy_vars_ue->PHY_measurements.rsrq[0])));
+    
+    
+    LOG_I(PHY,"[UE %d] Frame %d MIB Information => %s, %s, NidCell %d, N_RB_DL %d, PHICH DURATION %d, PHICH RESOURCE %s, TX_ANT %d\n",
+	  phy_vars_ue->Mod_id,
+	  phy_vars_ue->frame_rx,
+	  duplex_string[phy_vars_ue->lte_frame_parms.frame_type],
+	  prefix_string[phy_vars_ue->lte_frame_parms.Ncp],
+	  phy_vars_ue->lte_frame_parms.Nid_cell,
+	  phy_vars_ue->lte_frame_parms.N_RB_DL,
+	  phy_vars_ue->lte_frame_parms.phich_config_common.phich_duration,
+	  phich_string[phy_vars_ue->lte_frame_parms.phich_config_common.phich_resource],
+	  phy_vars_ue->lte_frame_parms.nb_antennas_tx_eNB);
+#if defined(OAI_USRP) || defined(EXMIMO) || defined(OAI_LMSSDR)
+    LOG_I(PHY,"[UE %d] Frame %d Measured Carrier Frequency %.0f Hz (offset %d Hz)\n",
+	  phy_vars_ue->Mod_id,
+	  phy_vars_ue->frame_rx,
+	  openair0_cfg[0].rx_freq[0]-phy_vars_ue->lte_ue_common_vars.freq_offset,
+	  phy_vars_ue->lte_ue_common_vars.freq_offset);
+#endif
+
+
+
+
+  } else {
+#ifdef DEBUG_INITIAL_SYNC
+    LOG_I(PHY,"[UE%d] Initial sync : PBCH not ok\n",phy_vars_ue->Mod_id);
+    LOG_I(PHY,"[UE%d] Initial sync : Estimated PSS position %d, Nid2 %d\n",phy_vars_ue->Mod_id,sync_pos,phy_vars_ue->lte_ue_common_vars.eNb_id);
+    /*      LOG_I(PHY,"[UE%d] Initial sync: (metric fdd_ncp %d (%d), metric fdd_ecp %d (%d), metric_tdd_ncp %d (%d), metric_tdd_ecp %d (%d))\n",
+          phy_vars_ue->Mod_id,
+          metric_fdd_ncp,Nid_cell_fdd_ncp,
+          metric_fdd_ecp,Nid_cell_fdd_ecp,
+          metric_tdd_ncp,Nid_cell_tdd_ncp,
+          metric_tdd_ecp,Nid_cell_tdd_ecp);*/
+    LOG_I(PHY,"[UE%d] Initial sync : Estimated Nid_cell %d, Frame_type %d\n",phy_vars_ue->Mod_id,
+          frame_parms->Nid_cell,frame_parms->frame_type);
+#endif
+
+    phy_vars_ue->UE_mode[0] = NOT_SYNCHED;
+    phy_vars_ue->lte_ue_pbch_vars[0]->pdu_errors_last=phy_vars_ue->lte_ue_pbch_vars[0]->pdu_errors;
+    phy_vars_ue->lte_ue_pbch_vars[0]->pdu_errors++;
+    phy_vars_ue->lte_ue_pbch_vars[0]->pdu_errors_conseq++;
+
+  }
+
+  // gain control
+  if (ret!=0) { //we are not synched, so we cannot use rssi measurement (which is based on channel estimates)
+    rx_power = 0;
+
+    // do a measurement on the best guess of the PSS
+    for (aarx=0; aarx<frame_parms->nb_antennas_rx; aarx++)
+      rx_power += signal_energy(&phy_vars_ue->lte_ue_common_vars.rxdata[aarx][sync_pos2],
+				frame_parms->ofdm_symbol_size+frame_parms->nb_prefix_samples);
+    
+    /*
+    // do a measurement on the full frame
+    for (aarx=0; aarx<frame_parms->nb_antennas_rx; aarx++)
+      rx_power += signal_energy(&phy_vars_ue->lte_ue_common_vars.rxdata[aarx][0],
+				frame_parms->samples_per_tti*10);
+    */
+
+    // we might add a low-pass filter here later
+    phy_vars_ue->PHY_measurements.rx_power_avg[0] = rx_power/frame_parms->nb_antennas_rx; 
+
+    phy_vars_ue->PHY_measurements.rx_power_avg_dB[0] = dB_fixed(phy_vars_ue->PHY_measurements.rx_power_avg[0]);
+
+#ifdef DEBUG_INITIAL_SYNCH
+  LOG_I(PHY,"[UE%d] Initial sync : Estimated power: %d dB\n",phy_vars_ue->Mod_id,phy_vars_ue->PHY_measurements.rx_power_avg_dB[0] );
+#endif
+
+#ifdef EXMIMO
+  if ((openair_daq_vars.rx_gain_mode == DAQ_AGC_ON) &&
+      (mode != rx_calib_ue) && (mode != rx_calib_ue_med) && (mode != rx_calib_ue_byp) )
+    //phy_adjust_gain(phy_vars_ue,0);
+    gain_control_all(phy_vars_ue->PHY_measurements.rx_power_avg_dB[0],0);
+
+#else
+#ifndef OAI_USRP
+#ifndef OAI_BLADERF 
+#ifndef OAI_LMSSDR
+  phy_adjust_gain(phy_vars_ue,phy_vars_ue->PHY_measurements.rx_power_avg_dB[0],0);
+#endif
+#endif
+#endif
+#endif
+  }
+  else {
+#ifdef EXMIMO
+  if ((openair_daq_vars.rx_gain_mode == DAQ_AGC_ON) &&
+      (mode != rx_calib_ue) && (mode != rx_calib_ue_med) && (mode != rx_calib_ue_byp) )
+    //phy_adjust_gain(phy_vars_ue,0);
+    gain_control_all(dB_fixed(phy_vars_ue->PHY_measurements.rssi),0);
+
+#else
+#ifndef OAI_USRP
+#ifndef OAI_BLADERF 
+#ifndef OAI_LMSSDR
+  phy_adjust_gain(phy_vars_ue,dB_fixed(phy_vars_ue->PHY_measurements.rssi),0);
+#endif
+#endif
+#endif
+#endif
+  }
+
+  //  exit_fun("debug exit");
+  return ret;
+}
+
+/*!
+ * \brief This is the UE synchronize thread.
+ * It performs band scanning and synchonization.
+ * \param arg is a pointer to a \ref PHY_VARS_UE structure.
+ * \returns a pointer to an int. The storage is not on the heap and must not be freed.
+ */
+static void *UE_thread_synch(void *arg)
+{
+	LOG_I( HW, "[lte-ue] [TAIHM] this start the UE thread synch\n");
+  static int UE_thread_synch_retval;
+  int i, hw_slot_offset;
+  PHY_VARS_UE *UE = (PHY_VARS_UE*) arg;
+  int current_band = 0;
+  int current_offset = 0;
+  sync_mode_t sync_mode = pbch;
+  int card;
+  int ind;
+  int found;
+  int freq_offset=0;
+
+  uint8_t eNB_id_SDN = 8; //TAIHM added to test SDN functions
+  uint8_t SDN_flag = 0;// TAIHM added for SDN controller
+  FILE *SDN_file;
+
+  UE->is_synchronized = 0;
+  printf("UE_thread_sync in with PHY_vars_UE %p\n",arg);
+  printf("waiting for sync (UE_thread_synch) \n");
+
+#ifndef DEADLINE_SCHEDULER
+  int policy, s, j;
+  struct sched_param sparam;
+  char cpu_affinity[1024];
+  cpu_set_t cpuset;
+
+  /* Set affinity mask to include CPUs 1 to MAX_CPUS */
+  /* CPU 0 is reserved for UHD threads */
+  CPU_ZERO(&cpuset);
+
+  #ifdef CPU_AFFINITY
+  if (get_nprocs() >2)
+  {
+    for (j = 1; j < get_nprocs(); j++)
+      CPU_SET(j, &cpuset);
+
+    s = pthread_setaffinity_np(pthread_self(), sizeof(cpu_set_t), &cpuset);
+    if (s != 0)
+    {
+      perror( "pthread_setaffinity_np");
+      exit_fun("Error setting processor affinity");
+    }
+  }
+  #endif
+
+  /* Check the actual affinity mask assigned to the thread */
+
+  s = pthread_getaffinity_np(pthread_self(), sizeof(cpu_set_t), &cpuset);
+  if (s != 0)
+  {
+    perror( "pthread_getaffinity_np");
+    exit_fun("Error getting processor affinity ");
+  }
+  memset(cpu_affinity, 0 , sizeof(cpu_affinity));
+  for (j = 0; j < CPU_SETSIZE; j++)
+  if (CPU_ISSET(j, &cpuset))
+  {  
+     char temp[1024];
+     sprintf(temp, " CPU_%d ", j);    
+     strcat(cpu_affinity, temp);
+  }
+
+  memset(&sparam, 0 , sizeof (sparam));
+  sparam.sched_priority = sched_get_priority_max(SCHED_FIFO)-1;
+  policy = SCHED_FIFO ; 
+  
+  s = pthread_setschedparam(pthread_self(), policy, &sparam);
+  if (s != 0)
+     {
+     perror("pthread_setschedparam : ");
+     exit_fun("Error setting thread priority");
+     }
+  s = pthread_getschedparam(pthread_self(), &policy, &sparam);
+  if (s != 0)
+   {
+     perror("pthread_getschedparam : ");
+     exit_fun("Error getting thread priority");
+
+   }
+
+  LOG_I( HW, "[SCHED][UE] Started UE synch thread on CPU %d TID %ld , sched_policy = %s, priority = %d, CPU Affinity = %s \n", (int)sched_getcpu(), gettid(),
+                   (policy == SCHED_FIFO)  ? "SCHED_FIFO" :
+                   (policy == SCHED_RR)    ? "SCHED_RR" :
+                   (policy == SCHED_OTHER) ? "SCHED_OTHER" :
+                   "???",
+                   (int) sparam.sched_priority, cpu_affinity);
+
+#endif
+
+
+  pthread_mutex_lock(&sync_mutex);
+  printf("Locked sync_mutex, waiting (UE_sync_thread)\n");
+
+  while (sync_var<0)
+    pthread_cond_wait(&sync_cond, &sync_mutex);
+
+  pthread_mutex_unlock(&sync_mutex);
+  printf("unlocked sync_mutex (UE_sync_thread)\n");
+
+  printf("starting UE synch thread (IC %d)\n",UE->instance_cnt_synch);
+  ind = 0;
+  found = 0;
+
+
+  if (UE->UE_scan == 0) {
+    do  {
+      current_band = eutra_bands[ind].band;
+      printf( "Scanning band %d, dl_min %"PRIu32", ul_min %"PRIu32"\n", current_band, eutra_bands[ind].dl_min,eutra_bands[ind].ul_min);
+
+      if ((eutra_bands[ind].dl_min <= downlink_frequency[0][0]) && (eutra_bands[ind].dl_max >= downlink_frequency[0][0])) {
+        for (card=0; card<MAX_NUM_CCs; card++)
+          for (i=0; i<4; i++)
+            uplink_frequency_offset[card][i] = eutra_bands[ind].ul_min - eutra_bands[ind].dl_min;
+
+        found = 1;
+        break;
+      }
+
+      ind++;
+    } while (ind < sizeof(eutra_bands) / sizeof(eutra_bands[0]));
+  
+    if (found == 0) {
+      exit_fun("Can't find EUTRA band for frequency");
+      return &UE_thread_synch_retval;
+    }
+
+
+
+
+
+
+    LOG_I( PHY, "[SCHED][UE] Check absolute frequency DL %"PRIu32", UL %"PRIu32" (oai_exit %d)\n", downlink_frequency[0][0], downlink_frequency[0][0]+uplink_frequency_offset[0][0],oai_exit );
+
+    for (i=0;i<openair0_cfg[0].rx_num_channels;i++) {
+      openair0_cfg[0].rx_freq[i] = downlink_frequency[0][i];
+      openair0_cfg[0].tx_freq[i] = downlink_frequency[0][i]+uplink_frequency_offset[0][i];
+      openair0_cfg[0].autocal[i] = 1;
+    }
+
+    sync_mode = pbch;
+
+  } else if  (UE->UE_scan == 1) {
+    current_band=0;
+
+    for (card=0; card<MAX_CARDS; card++) {
+      for (i=0; i<openair0_cfg[card].rx_num_channels; i++) {
+        downlink_frequency[card][i] = bands_to_scan.band_info[0].dl_min;
+        uplink_frequency_offset[card][i] = bands_to_scan.band_info[0].ul_min-bands_to_scan.band_info[0].dl_min;
+
+        openair0_cfg[card].rx_freq[i] = downlink_frequency[card][i];
+        openair0_cfg[card].tx_freq[i] = downlink_frequency[card][i]+uplink_frequency_offset[card][i];
+#ifdef OAI_USRP
+        openair0_cfg[card].rx_gain[i] = UE->rx_total_gain_dB;//-USRP_GAIN_OFFSET;
+
+#if 0 // UHD 3.8	
+        switch(UE->lte_frame_parms.N_RB_DL) {
+        case 6:
+          openair0_cfg[card].rx_gain[i] -= 12;
+          break;
+
+        case 25:
+          openair0_cfg[card].rx_gain[i] -= 6;
+          break;
+
+        case 50:
+          openair0_cfg[card].rx_gain[i] -= 3;
+          break;
+
+        case 100:
+          openair0_cfg[card].rx_gain[i] -= 0;
+          break;
+
+        default:
+          printf( "Unknown number of RBs %d\n", UE->lte_frame_parms.N_RB_DL );
+          break;
+        }
+#endif
+        printf( "UE synch: setting RX gain (%d,%d) to %f\n", card, i, openair0_cfg[card].rx_gain[i] );
+#endif
+      }
+    }
+
+  }
+
+  while (oai_exit==0) {
+  //while ((UE->is_synchronized==0)&& (oai_exit==0)){
+
+    if (pthread_mutex_lock(&UE->mutex_synch) != 0) {
+      LOG_E( PHY, "[SCHED][UE] error locking mutex for UE initial synch thread\n" );
+      exit_fun("noting to add");
+      return &UE_thread_synch_retval;
+    }
+    
+
+    while (UE->instance_cnt_synch < 0) {
+      // the thread waits here most of the time
+      pthread_cond_wait( &UE->cond_synch, &UE->mutex_synch );
+    }
+
+    if (pthread_mutex_unlock(&UE->mutex_synch) != 0) {
+      LOG_E( PHY, "[SCHED][eNB] error unlocking mutex for UE Initial Synch thread\n" );
+      exit_fun("nothing to add");
+      return &UE_thread_synch_retval;
+    }
+
+    VCD_SIGNAL_DUMPER_DUMP_FUNCTION_BY_NAME( VCD_SIGNAL_DUMPER_FUNCTIONS_UE_SYNCH, 1 );
+
+    switch (sync_mode) {
+    case pss:
+      LOG_I(PHY,"[SCHED][UE] Scanning band %d (%d), freq %u\n",bands_to_scan.band_info[current_band].band, current_band,bands_to_scan.band_info[current_band].dl_min+current_offset);
+      lte_sync_timefreq(UE,current_band,bands_to_scan.band_info[current_band].dl_min+current_offset);
+      current_offset += 20000000; // increase by 20 MHz
+
+      if (current_offset > bands_to_scan.band_info[current_band].dl_max-bands_to_scan.band_info[current_band].dl_min) {
+        current_band++;
+        current_offset=0;
+      }
+
+      if (current_band==bands_to_scan.nbands) {
+        current_band=0;
+        oai_exit=1;
+      }
+
+      for (card=0; card<MAX_CARDS; card++) {
+        for (i=0; i<openair0_cfg[card].rx_num_channels; i++) {
+          downlink_frequency[card][i] = bands_to_scan.band_info[current_band].dl_min+current_offset;
+          uplink_frequency_offset[card][i] = bands_to_scan.band_info[current_band].ul_min-bands_to_scan.band_info[0].dl_min + current_offset;
+
+
+          openair0_cfg[card].rx_freq[i] = downlink_frequency[card][i];
+          openair0_cfg[card].tx_freq[i] = downlink_frequency[card][i]+uplink_frequency_offset[card][i];
+#ifdef OAI_USRP
+          openair0_cfg[card].rx_gain[i] = UE->rx_total_gain_dB;//-USRP_GAIN_OFFSET;  // 65 calibrated for USRP B210 @ 2.6 GHz
+
+#if 0 // UHD 3.8	  
+          switch(UE->lte_frame_parms.N_RB_DL) {
+          case 6:
+            openair0_cfg[card].rx_gain[i] -= 12;
+            break;
+
+          case 25:
+            openair0_cfg[card].rx_gain[i] -= 6;
+            break;
+
+          case 50:
+            openair0_cfg[card].rx_gain[i] -= 3;
+            break;
+
+          case 100:
+            openair0_cfg[card].rx_gain[i] -= 0;
+            break;
+
+          default:
+            printf("Unknown number of RBs %d\n",UE->lte_frame_parms.N_RB_DL);
+            break;
+          }
+#endif	  
+
+          printf("UE synch: setting RX gain (%d,%d) to %f\n",card,i,openair0_cfg[card].rx_gain[i]);
+#endif
+
+        }
+
+      }
+
+      if (UE->UE_scan_carrier) {
+
+	for (i=0;i<openair0_cfg[0].rx_num_channels;i++)
+	  openair0_cfg[0].autocal[i] = 1;
+
+      }
+
+
+      break;
+ 
+    case pbch:
+
+      LOG_I(PHY,"[UE thread Synch] Running Initial Synch\n");
+
+      if (initial_sync( UE, UE->mode ) == 0) {
+
+        hw_slot_offset = (UE->rx_offset<<1) / UE->lte_frame_parms.samples_per_tti;
+        LOG_I( HW, "Got synch: hw_slot_offset %d\n", hw_slot_offset );
+	if (UE->UE_scan_carrier == 1) {
+
+	  UE->UE_scan_carrier = 0;
+	  // rerun with new cell parameters and frequency-offset
+	  for (i=0;i<openair0_cfg[0].rx_num_channels;i++) {
+	    openair0_cfg[0].rx_gain[i] = UE->rx_total_gain_dB;//-USRP_GAIN_OFFSET;
+	    openair0_cfg[0].rx_freq[i] -= UE->lte_ue_common_vars.freq_offset;
+	    openair0_cfg[0].tx_freq[i] =  openair0_cfg[0].rx_freq[i]+uplink_frequency_offset[0][i];
+	    downlink_frequency[0][i] = openair0_cfg[0].rx_freq[i];
+	    freq_offset=0;	    
+	  }
+
+	  // reconfigure for potentially different bandwidth
+	  switch(UE->lte_frame_parms.N_RB_DL) {
+	  case 6:
+	    openair0_cfg[0].sample_rate =1.92e6;
+	    openair0_cfg[0].rx_bw          =.96e6;
+	    openair0_cfg[0].tx_bw          =.96e6;
+	    //            openair0_cfg[0].rx_gain[0] -= 12;
+	    break;
+	  case 25:
+	    openair0_cfg[0].sample_rate =7.68e6;
+	    openair0_cfg[0].rx_bw          =2.5e6;
+	    openair0_cfg[0].tx_bw          =2.5e6;
+	    //            openair0_cfg[0].rx_gain[0] -= 6;
+	    break;
+	  case 50:
+	    openair0_cfg[0].sample_rate =15.36e6;
+	    openair0_cfg[0].rx_bw          =5.0e6;
+	    openair0_cfg[0].tx_bw          =5.0e6;
+	    //            openair0_cfg[0].rx_gain[0] -= 3;
+	    break;
+	  case 100:
+	    openair0_cfg[0].sample_rate=30.72e6;
+	    openair0_cfg[0].rx_bw=10.0e6;
+	    openair0_cfg[0].tx_bw=10.0e6;
+	    //            openair0_cfg[0].rx_gain[0] -= 0;
+	    break;
+	  }
+#ifndef EXMIMO
+	  openair0.trx_set_freq_func(&openair0,&openair0_cfg[0],0);
+	  //openair0.trx_set_gains_func(&openair0,&openair0_cfg[0]);
+	  //openair0.trx_stop_func(0);	  
+#else
+	  openair0_set_frequencies(&openair0,&openair0_cfg[0],0);
+	  openair0_set_gains(&openair0,&openair0_cfg[0]);
+	  openair0_stop(0);
+#endif
+	  //TaiHM
+	  //Waiting for feedback from SDN
+	  //Update SDN_flag and eNB_id_SDN here
+	  char line[80];
+	      	  SDN_file = fopen("SDN.dat","rt"); //Read SDN.dat file to update the eNB ID
+	      	    if (SDN_file == NULL)
+	      	    {
+	      	    	//SDN does not update yet,
+	      	    	//oai_exit = 1;
+	      	    	//exit_fun("SDN FILE null: SDN not feedback yet!!");
+	      	    	exit(1);
+	      	    }
+	      	    else
+	      	    {
+	      	    	if(fgets(line, 10, SDN_file) != NULL){
+	      	    		sscanf(line,"%d",&SDN_flag);
+	      	    		//Check the SDN_flag
+	      	    			 if(SDN_flag==1){
+	      	    				 if(fgets(line, 10, SDN_file) != NULL){
+	      	    					 sscanf(line,"%d",&eNB_id_SDN);
+	      	    					 //The UE will connect with the eNB which is selected by SND
+	      	    					 //The UE first selects the best eNB by itself, after getting feedback from SND (information of selected eNB)
+	      	    					 //The UE then update the eNB (Nid_cell) for the next RRC and NAS connectivity
+	      	    					 if(UE->lte_frame_parms.Nid_cell==eNB_id_SDN){
+	      	    						  //The eNB selected by SDN is the same with the best one selected by UE
+	      	    					 }
+	      	    					 else{
+	      	    						  //The eNB selected by SDN is different with the one selected by UE
+	      	    						  //Update Nid_cell variable then UE could connect to the new eNB
+	      	    						  UE->lte_frame_parms.Nid_cell=eNB_id_SDN;
+	      	    					 }
+	      	    				 }
+	      	    				 else{
+	      	    					 // No Cell id found
+	      	    					 //oai_exit = 1;
+	      	    					 //exit_fun("No data found: SDN not feedback yet!!");
+	      	    					exit(1);
+	      	    				 }
+	      	    			 }
+	      	    			 else{
+	      	    				 // SDN_flag not update yet
+	      	    				//oai_exit = 1;
+	      	    				//exit_fun("SDN_flag not update yet: SDN not feedback yet!!");
+	      	    				exit(1);
+	      	    			 }
+	      	    		}
+
+	      	    	fclose(SDN_file);
+	      	    }
+
+	      //UE->lte_frame_parms.Nid_cell=eNB_id_SDN;
+
+	  sleep(1);
+	  init_frame_parms(&UE->lte_frame_parms,1);
+	}
+	else {
+	  UE->is_synchronized = 1;
+
+	 if( UE->mode == rx_dump_frame ){
+	   FILE *fd;
+	   if ((UE->frame_rx&1) == 0) {  // this guarantees SIB1 is present 
+	     if ((fd = fopen("rxsig_frame0.dat","w")) != NULL) {
+	       fwrite((void*)&UE->lte_ue_common_vars.rxdata[0][0],
+		      sizeof(int32_t),
+		      10*UE->lte_frame_parms.samples_per_tti,
+		      fd);
+	       LOG_I(PHY,"Dummping Frame ... bye bye \n");
+	       fclose(fd);
+	       //exit(0);
+	       //UE->is_synchronized = 0;
+	     }
+	     else {
+	       LOG_E(PHY,"Cannot open file for writing\n");
+	       //exit(0);
+	       //UE->is_synchronized = 0;
+	     }
+	   }
+	   else {
+	     UE->is_synchronized = 0;
+	   }
+	 }
+	 
+
+#ifndef EXMIMO
+	  UE->slot_rx = 0;
+	  UE->slot_tx = 4;
+#else
+	  UE->slot_rx = 18;
+	  UE->slot_tx = 2;
+#endif
+	}
+      } else {
+        // initial sync failed
+        // calculate new offset and try again
+	if (UE->UE_scan_carrier == 1) {
+	  if (freq_offset >= 0) {
+	    freq_offset += 100;
+	    freq_offset *= -1;
+	  } else {
+	    freq_offset *= -1;
+	  }
+	
+	  if (abs(freq_offset) > 7500) {
+	    LOG_I( PHY, "[initial_sync] No cell synchronization found, abandoning\n" );
+	    FILE *fd;
+	    if ((fd = fopen("rxsig_frame0.dat","w"))!=NULL) {
+	      fwrite((void*)&UE->lte_ue_common_vars.rxdata[0][0],
+		     sizeof(int32_t),
+		     10*UE->lte_frame_parms.samples_per_tti,
+		     fd);
+	      LOG_I(PHY,"Dummping Frame ... \n");
+	      fclose(fd);
+	      //exit(0);
+	      UE->is_synchronized = 0;
+	      LOG_I(PHY,"[TAIHM] Repeat Synch ... \n");
+	    }
+	    //mac_xface->macphy_exit("No cell synchronization found, abandoning");
+	    //return &UE_thread_synch_retval; // not reached
+	    UE->is_synchronized = 0;
+	  }
+	}
+	else {
+	  
+	}
+        LOG_I( PHY, "[initial_sync] trying carrier off %d Hz, rxgain %d (DL %u, UL %u)\n", 
+	       freq_offset,
+               UE->rx_total_gain_dB,
+               downlink_frequency[0][0]+freq_offset,
+               downlink_frequency[0][0]+uplink_frequency_offset[0][0]+freq_offset );
+
+        for (card=0; card<MAX_CARDS; card++) {
+          for (i=0; i<openair0_cfg[card].rx_num_channels; i++) {
+            openair0_cfg[card].rx_freq[i] = downlink_frequency[card][i]+freq_offset;
+            openair0_cfg[card].tx_freq[i] = downlink_frequency[card][i]+uplink_frequency_offset[card][i]+freq_offset;
+#ifndef EXMIMO
+	    openair0.trx_set_freq_func(&openair0,&openair0_cfg[0],0);
+	    
+#else
+	    openair0_set_frequencies(&openair0,&openair0_cfg[0],0);
+	    
+#endif
+
+#if defined(OAI_USRP) || defined(OAI_BLADERF) || defined(OAI_LMSSDR)
+            openair0_cfg[card].rx_gain[i] = UE->rx_total_gain_dB;//-USRP_GAIN_OFFSET;
+	    
+	    
+#if 0
+            switch(UE->lte_frame_parms.N_RB_DL) {
+            case 6:
+              openair0_cfg[card].rx_gain[i] -= 12;
+              break;
+
+            case 25:
+              openair0_cfg[card].rx_gain[i] -= 6;
+              break;
+
+            case 50:
+              openair0_cfg[card].rx_gain[i] -= 0;//3;
+              break;
+
+            case 100:
+              openair0_cfg[card].rx_gain[i] -= 0;
+              break;
+
+            default:
+              printf("Unknown number of RBs %d\n",UE->lte_frame_parms.N_RB_DL);
+              break;
+            }
+#endif	    
+#endif
+          }
+        }
+	if (UE->UE_scan_carrier==1) {
+	  for (i=0;i<openair0_cfg[0].rx_num_channels;i++)
+	    openair0_cfg[0].autocal[i] = 1;
+	  
+	}
+      }// initial_sync=0
+
+      break;
+
+    case si:
+    default:
+      break;
+    }
+
+    VCD_SIGNAL_DUMPER_DUMP_FUNCTION_BY_NAME( VCD_SIGNAL_DUMPER_FUNCTIONS_UE_SYNCH, 0 );
+
+
+
+    if (pthread_mutex_lock(&UE->mutex_synch) != 0) {
+      LOG_E( PHY, "[SCHED][UE] error locking mutex for UE synch\n" );
+      exit_fun("noting to add");
+      return &UE_thread_synch_retval;
+    }
+
+    // indicate readiness
+    UE->instance_cnt_synch--;
+
+    if (pthread_mutex_unlock(&UE->mutex_synch) != 0) {
+      LOG_E( PHY, "[SCHED][UE] error unlocking mutex for UE synch\n" );
+      exit_fun("noting to add");
+      return &UE_thread_synch_retval;
+    }
+
+    VCD_SIGNAL_DUMPER_DUMP_FUNCTION_BY_NAME( VCD_SIGNAL_DUMPER_FUNCTIONS_UE_SYNCH, 0 );
+  }  // while !oai_exit
+
+  return &UE_thread_synch_retval;
+}
