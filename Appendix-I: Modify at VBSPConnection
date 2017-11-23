@@ -161,3 +161,5 @@ class VBSPConnection(object):
                 print ('message.head.mPA=', message.head.mPA)
                 print ('sending to bs ', bs_id)
 
+
+
