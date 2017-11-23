@@ -1,0 +1,163 @@
+Appendix I: Function sending information to eNB (Made by Mr. Alselme and Mr. Le Anh Tuan):
+
+class VBSPConnection(object):
+    """VBSP Connection.
+    Represents a connection to a ENB (EUTRAN Base Station) using
+    the VBSP Protocol. One VBSPConnection object is created for every
+    ENB in the network. The object implements the logic for handling
+    incoming messages. The currently supported messages are:
+
+    Attributes:
+        stream: The stream object used to talk with the ENB.
+        address: The connection source address, i.e. the ENB IP address.
+        server: Pointer to the server object.
+        vbs: Pointer to a VBS object.
+    """
+
+    def __init__(self, stream, addr, server):
+        self.stream = stream
+        self.stream.set_nodelay(True)
+        self.addr = addr
+        self.server = server
+        self.vbs = None
+        self.seq = 0
+        self.stream.set_close_callback(self._on_disconnect)
+        self.__buffer = b''
+        self._hb_interval_ms = 500
+        self._hb_worker = tornado.ioloop.PeriodicCallback(self._heartbeat_cb,
+                                                          self._hb_interval_ms)
+        self.endian = sys.byteorder
+        self._hb_worker.start()
+        self._wait()
+
+    def to_dict(self):
+        """Return dict representation of object."""
+
+        return self.addr
+
+    def _heartbeat_cb(self):
+        """Check if connection is still active."""
+
+        if self.vbs and not self.stream.closed():
+            timeout = (self.vbs.period / 1000) * 3
+            if (self.vbs.last_seen_ts + timeout) < time.time():
+                LOG.info('Client inactive %s at %r', self.vbs.addr, self.addr)
+                #self.stream.close()
+
+    def stream_send(self, message):
+
+
+
+        """Send message."""
+        transfer_data = 1
+        transfer_data1 = 9.6
+        transfer_data2 = 7.1
+        transfer_data3 = 1.1
+
+        # Update the sequence number of the messages
+        message.head.seq = self.seq + 1
+        #added for testing
+        message.head.transfer_data = transfer_data
+        message.head.transfer_data1 = transfer_data1
+        message.head.transfer_data2 = transfer_data2
+        message.head.transfer_data3 = transfer_data3
+
+        MNO = Controller_Name('----Project Name: Markov approximation-based learning in 5G network---')
+        # ==============================================================================
+        M1 = [89.75, 89.75, 89.75]  # via BS id set at configuration file
+        M2 = [21, 21, 21, 21, 21]  # via UE emei
+
+        M3 = np.array([[0, 0, 1],
+                       [0, 0, 1],
+                       [1, 1, 0]])
+
+        M4 = np.array([[1, 0, 0],
+                       [0, 1, 0],
+                       [0, 0, 1]])
+
+        M5 = np.array([[-69.12372078, -74.1376763, -71.82325875],
+                       [-53.83030764, -70.29361338, -74.97618152],
+                       [-59.74909419, -67.796359, -75.62515563],
+                       [-66.54979872, -74.95372667, -69.25830752],
+                       [-61.29133112, -73.60238591, -70.5957919]])
+        # ===============================================================================
+        # print 'Getting SINR level'
+        # MNO.P_Rx = 10**(0.1*MNO.P_Rx)
+        # #print 'MNO.P_Rx', MNO.P_Rx
+        # for k1 in range(MNO.nUE):
+        #     for k2 in range(MNO.nBS):
+        #         MNO.Intf_UExBS_RB[[k1],[k2]] = np.dot(MNO.P_Rx[[k1],:], MNO.BS_Rmap[:,[k2]]) # Wats
+        #         MNO.SINR_UE_BS_RB[[k1],[k2]] = MNO.P_Rx[[k1],[k2]] / (MNO.Intf_UExBS_RB[[k1],[k2]]  + MNO.N0) # Wats
+        #
+        # SINR_dB = 10*np.log10(MNO.SINR_UE_BS_RB)
+        M6 = MNO.Intf_UExBS_RB = np.array([[6.57164546e-08, 6.57164546e-08, 1.60925213e-07],
+                                           [3.17966852e-08, 3.17966852e-08, 4.23316627e-06],
+                                           [2.73832150e-08, 2.73832150e-08, 1.22557256e-06],
+                                           [1.18623094e-07, 1.18623094e-07, 2.53281241e-07],
+                                           [8.71807921e-08, 8.71807921e-08, 7.86419045e-07]])
+        M7 = SINR_dB = np.array([[2.69953797, -2.31441755, -3.88949969],
+                                 [21.14587388, 4.68256814, -21.24283479],
+                                 [15.87606144, 7.82879663, -16.50854592],
+                                 [2.7085088, -5.69541915, -3.29433778],
+                                 [9.30446078, -3.00659401, -9.55233212]])
+
+        R_U, LA_UA,LA_DPA,LA_DRBA= scheduling_algoirthm(M1, M2, M3, M4, M5, M6, M7)
+
+
+
+
+        print ('result', R_U)
+
+        LOG.info("Testing: version %s Data1 %s, Data2 %s , Data3 %s Head %s  Seq number %u", message.head.transfer_data , message.head.transfer_data1, message.head.transfer_data2, message.head.transfer_data3, message,
+                 message.head.seq)
+        #LOG.info("Connection from data %s data1 %s, data2 %s , data3 %s seq number %u", message.transfer_data, message.transfer_data1,
+        #         message.transfer_data2, message.transfer_data3,
+        #       message.head.seq)
+        nBS =3
+        for bs_id in range(nBS):
+            # Send to eNB-1
+            message.head.mUA=LA_UA[bs_id]
+            message.head.mPA=LA_DPA[bs_id]
+            message.head.GRB1 = LA_DRBA[0]
+            message.head.GRB2 = LA_DRBA[1]
+            message.head.GRB3 = LA_DRBA[2]
+            message.head.GRB4 = LA_DRBA[3]
+            message.head.GRB5 = LA_DRBA[4]
+
+            size = message.ByteSize()
+            #print(message.__str__())
+            size_bytes = (socket.htonl(size)).to_bytes(4, byteorder=self.endian)
+            send_buff = serialize_message(message)
+            buff = size_bytes + send_buff
+
+            if buff is None:
+                LOG.error("errno %u occured")
+            self.stream.write(buff)
+            if bs_id ==0:
+                # #added by anselme
+                address = ('192.168.100.101', 2210)
+                sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+                sock.connect(address)
+                sock.sendall(buff)
+                #self.stream.write(buff)
+                print ('message.head.mPA=',message.head.mPA)
+                print ('sending to bs ', bs_id)
+            if bs_id ==1:
+                # #added by anselme
+                address = ('192.168.100.102', 2210)
+                sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+                sock.connect(address)
+                sock.sendall(buff)
+                #self.stream.write(buff)
+                print ('message.head.mPA=', message.head.mPA)
+                print ('sending to bs ', bs_id)
+            if bs_id ==2:
+                # #added by anselme
+                address = ('192.168.100.103', 2210)
+                sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+                sock.connect(address)
+                sock.sendall(buff)
+                #self.stream.write(buff)
+                print ('message.head.mPA=', message.head.mPA)
+                print ('sending to bs ', bs_id)
+
