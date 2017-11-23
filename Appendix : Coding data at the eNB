@@ -1,0 +1,256 @@
+//// Made by MR. LE ANH TUAN --> tested.  ///
+void vector_to_str(double *input, char *output)
+// input: vector
+// output: string
+// n: lenth for each entity. For example: -195.7 --> 1957 --> n = 4
+// example: v= [-95.6 -53.4 -83.7]
+{   int n = 5;
+
+
+
+    int i=0;
+    int i1;
+    double num;
+    for (i1 = 0; i1<3; i1++)
+    {
+    	num = input[i1];
+    	//printf("num: %f", num);
+
+
+    	char str[n+1];
+    	snprintf(str,n+1,"%f",num); // convert to string
+    	int i2;
+        for (i2=1;i2<=n-1;i2++) // ignoring the "-" sign
+        {
+        	i= i+1;
+        	output[i] = str[i2]; // getting characters
+        	//printf ("%s", str[i2]);
+        }
+    }
+}
+
+void vector_to_str_ss(double *input, char *output)
+{   int n = 2;
+
+
+
+    int i=0;
+    int i1;
+    double num;
+    for (i1 = 0; i1<5; i1++)
+    {
+    	num = input[i1];
+    	//printf("num: %f", num);
+
+    	char str[n+1];
+    	snprintf(str,n+1,"%f",num); // convert to string
+    	int i2;
+        for (i2=0;i2<=n-2;i2++) // ignoring the "-" sign
+        {
+        	i= i+1;
+        	output[i] = str[i2]; // getting characters
+        	//printf ("%s", str[i2]);
+        }
+    }
+}
+double *vP_Rx1; // size of spectrum sensing results (SSR) of each RB
+double *vP_Rx2;
+double *vP_Rx3;
+double *vP_Rx4;
+double *vP_Rx5;
+
+double *vRSRP1; // size of SINR from each UE and each BS (downlink)
+double *vRSRP2; // size of SINR from each UE and each BS (downlink)
+double *vRSRP3; // size of SINR from each UE and each BS (downlink)
+double *vRSRP4; // size of SINR from each UE and each BS (downlink)
+double *vRSRP5; // size of SINR from each UE and each BS (downlink)
+
+double *vSSR1; // for GRB1
+double *vSSR2; // for GRB2
+double *vSSR3; // for GRB3
+double *vSSR4; // for GRB4
+double *vSSR5; // for GRB5
+
+
+//double vP_Rx11[3] = {-7110, -7501, -7801};       // UE getting from UE1 for BS1, BS2, BS3; ---> will be updated from Mrs. Tra and Mr. Anupam
+double vP_Rx11[3] = {-7110, -7501, -7801};       // UE getting from UE1 for BS1, BS2, BS3; ---> will be updated from Mrs. Tra and Mr. Anupam
+vP_Rx1 = vP_Rx11;
+double vP_Rx21[3] = {-7620, -4502, -7202};       // UE getting from UE2 for BS1, BS2, BS3; ---> will be updated from Mrs. Tra and Mr. Anupam
+vP_Rx2 = vP_Rx21;
+double vP_Rx31[3] = {-1413, -1753, -1903};   // // UE getting from UE3 for BS1, BS2, BS3; do not update
+vP_Rx3 = vP_Rx31;
+double vP_Rx41[3] = {-1714, -1754, -1784};   // // UE getting from UE4 for BS1, BS2, BS3; do not update
+vP_Rx4 = vP_Rx41;
+double vP_Rx51[3] = {-1715, -1755, -1785};  // // UE getting from UE5 for BS1, BS2, BS3; dBm, do not update,
+vP_Rx5 = vP_Rx51;
+
+double vRSRP11[3] = {-7100, -7500, -7800};  // RSVP from UE 1   ---> will be updated from Mrs. Tra and Mr. Anupam
+vRSRP1 = vRSRP11;
+double vRSRP21[3] = {-7600, -4500, -7200};  // RSVP from UE 2   ---> will be updated from Mrs. Tra and Mr. Anupam
+vRSRP2 = vRSRP21;
+double vRSRP31[3] = {-4100, -7500, -9000}; // RSVP from UE 3  do not update
+vRSRP3 = vRSRP31;
+double vRSRP41[3] = {-7100, -7500, -7800}; // RSVP from UE 4  do not update
+vRSRP4 = vRSRP41;
+double vRSRP51[3] = {-7100, -7500, -7800}; // RSVP from UE 5  do not update
+vRSRP5 = vRSRP51;
+	//
+double vSSR11[5] = {1,0,0,0,1};// 1 : RB is not available, 0: available RB
+vSSR1 = vSSR11;
+double vSSR21[5] = {0,0,0,0,1};// 1 : RB is not available, 0: available RB
+vSSR2 = vSSR21;
+double vSSR31[5] = {0,0,1,0,0};// 1 : RB is not available, 0: available RB
+vSSR3 = vSSR31;
+double vSSR41[5] = {0,1,1,0,0};// 1 : RB is not available, 0: available RB
+vSSR4 = vSSR41;
+double vSSR51[5] = {0,0,1,0,0};// 1 : RB is not available, 0: available RB
+vSSR5 = vSSR51;
+
+
+//    printf("print m_UA result:");
+//    for(int i = 0; i <= 2; i++) {
+//            printf("%f ", vP_Rx11[i]);
+//    }
+//    printf("\n");
+//    vP_Rx1 = vP_Rx11;
+//    printf("print vP_Rx1 result:");
+//    for(int i = 0; i <= 2; i++) {
+//            printf("%f ", vP_Rx1[i]);
+//    }
+//    printf("\n");
+char sP_Rx1[13] = "10000000000000";
+char sP_Rx2[13] = "10000000000000";
+char sP_Rx3[13] = "10000000000000";
+char sP_Rx4[13] = "10000000000000";
+char sP_Rx5[13] = "10000000000000";
+
+char sRSRP1[13] = "10000000000000";
+char sRSRP2[13] = "10000000000000";
+char sRSRP3[13] = "10000000000000";
+char sRSRP4[13] = "10000000000000";
+char sRSRP5[13] = "10000000000000";
+
+char sSSR1[13] = "100000";
+char sSSR2[13] = "100000";
+char sSSR3[13] = "100000";
+char sSSR4[13] = "100000";
+char sSSR5[13] = "100000";
+
+vector_to_str(vP_Rx1, sP_Rx1);
+vector_to_str(vP_Rx2, sP_Rx2);
+vector_to_str(vP_Rx3, sP_Rx3);
+vector_to_str(vP_Rx4, sP_Rx4);
+vector_to_str(vP_Rx5, sP_Rx5);
+
+
+vector_to_str(vRSRP1, sRSRP1);
+vector_to_str(vRSRP2, sRSRP2);
+vector_to_str(vRSRP3, sRSRP3);
+vector_to_str(vRSRP4, sRSRP4);
+vector_to_str(vRSRP5, sRSRP5);
+	//
+vector_to_str_ss(vSSR1, sSSR1);
+vector_to_str_ss(vSSR2, sSSR2);
+vector_to_str_ss(vSSR3, sSSR3);
+vector_to_str_ss(vSSR4, sSSR4);
+vector_to_str_ss(vSSR5, sSSR5);
+
+printf("print sP_Rx1 result: %s \n",sP_Rx1);
+printf("print sP_Rx2 result: %s \n",sP_Rx2);
+printf("print sP_Rx3 result: %s \n",sP_Rx3);
+printf("print sP_Rx4 result: %s \n",sP_Rx4);
+printf("print sP_Rx5 result: %s \n",sP_Rx5);
+
+printf("print sRSRP1 result: %s \n",sRSRP1);
+printf("print sRSRP2 result: %s \n",sRSRP2);
+printf("print sRSRP3 result: %s \n",sRSRP3);
+printf("print sRSRP4 result: %s \n",sRSRP4);
+printf("print sRSRP5 result: %s \n",sRSRP5);
+
+printf("print sSSR1 result: %s \n",sSSR1);
+printf("print sSSR2 result: %s \n",sSSR2);
+printf("print sSSR3 result: %s \n",sSSR3);
+printf("print sSSR4 result: %s \n",sSSR4);
+printf("print sSSR5 result: %s \n",sSSR5);
+
+
+double p_ue_rx1 = atof(sP_Rx1); // 1086004400210; // dowlink transmit power or Tx_gain
+double p_ue_rx2 = atof(sP_Rx2);// 1086004400220; // dowlink transmit power or Tx_gain
+double p_ue_rx3 = atof(sP_Rx3);// 1175017501750; // dowlink transmit power or Tx_gain 175: NO ue
+double p_ue_rx4 = atof(sP_Rx4);// 1175017501750; // dowlink transmit power or Tx_gain
+double p_ue_rx5 = atof(sP_Rx5);// 1175017501750; // dowlink transmit power or Tx_gain
+//
+double rsrp1 = atof(sRSRP1); //vRSRP1// 1075007600770; // dowlink transmit power or Tx_gain 075: -75 dBm
+double rsrp2 = atof(sRSRP2); //=  1079007200750; // dowlink transmit power or Tx_gain
+double rsrp3 = atof(sRSRP3); //= 1175017501750; // dowlink transmit power or Tx_gain // NO ue
+double rsrp4 = atof(sRSRP4); //1175017501750; // dowlink transmit power or Tx_gain // NO ue
+double rsrp5 = atof(sRSRP5); //= 1175017501750; // dowlink transmit power or Tx_gain // nO ue
+//
+double spectrum_sensing_grb1 = atof(sSSR1);//101011; // will get from sensing function
+double spectrum_sensing_grb2 = atof(sSSR2);//201011; // will get from sensing function
+double spectrum_sensing_grb3 = atof(sSSR3);//311011; // will get from sensing function
+double spectrum_sensing_grb4 = atof(sSSR4);//401101; // will get from sensing function
+double spectrum_sensing_grb5 = atof(sSSR5);//511011; // will get from sensing function
+//// end of code///
+
+// assigning to buffer for transmitting data to controller.
+
+
+
+// made by Mr. Aselme --> tested
+//double p_ue_rx1 = 1086004400210; // dowlink transmit power or Tx_gain
+//double p_ue_rx2 = = 1086004400220; // dowlink transmit power or Tx_gain
+//double p_ue_rx3 = 1175017501751; // dowlink transmit power or Tx_gain 175: NO ue
+//double p_ue_rx4 = 1175017501750; // dowlink transmit power or Tx_gain
+//double p_ue_rx5 = 1175017501750; // dowlink transmit power or Tx_gain
+//
+//double rsrp1 = 1075007600770; // dowlink transmit power or Tx_gain 075: -75 dBm
+//double rsrp2 = 1079007200750; // dowlink transmit power or Tx_gain
+//double rsrp3 = 1175017501750; // dowlink transmit power or Tx_gain // NO ue
+//double rsrp4 = 1175017501750; // dowlink transmit power or Tx_gain // NO ue
+//double rsrp5 = 1175017501750; // dowlink transmit power or Tx_gain // nO ue
+//
+//double spectrum_sensing_grb1 = 101011; // will get from sensing function
+//double spectrum_sensing_grb2 = 201011; // will get from sensing function
+//double spectrum_sensing_grb3 = 311011; // will get from sensing function
+//double spectrum_sensing_grb4 = 401101; // will get from sensing function
+//double spectrum_sensing_grb5 = 511011; // will get from sensing function
+
+double td1=spectrum_sensing_grb1;
+double td2=spectrum_sensing_grb2;
+double td3=spectrum_sensing_grb3;
+double td4=spectrum_sensing_grb4;
+double td5=spectrum_sensing_grb5;
+double td6=spectrum_sensing_grb5;
+
+double td7=p_ue_rx1;
+double td8=p_ue_rx2;
+double td9=p_ue_rx3;
+double td10=p_ue_rx4;
+double td11=p_ue_rx5;
+
+double td12=rsrp1;
+double td13=rsrp2;
+double td14=rsrp3;
+double td15=rsrp4;
+double td16=rsrp5;
+
+double td17=0;
+double td18=0;
+double td19=0;
+double td20=0;
+
+
+//receiving from controller
+double mua=1.0;
+double mpa=2.5;
+double grb1=58.0;
+double grb2=58.0;
+double grb3=58.0;
+double grb4=45.5;
+double grb5=12.0;
+
+//end of code
+
+//Testing unpacked message from net.c
+
